@@ -3,7 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   typescript: {
-    ignoreBuildErrors: false,
+    // During development you may want to set this to true to see the app even with type errors
+    ignoreBuildErrors: false
   }
 }
 
