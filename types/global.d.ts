@@ -1,0 +1,12 @@
+interface Window {
+  ENV?: {
+    NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: string;
+    NEXT_PUBLIC_EDAMAM_APP_ID: string;
+    NEXT_PUBLIC_EDAMAM_APP_KEY: string;
+  }
+}
+
+type EnvVarKey = 
+  | 'NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY'
+  | 'NEXT_PUBLIC_EDAMAM_APP_ID'
+  | 'NEXT_PUBLIC_EDAMAM_APP_KEY';
