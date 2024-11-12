@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, X, AlertTriangle, Info, Loader2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Progress } from "../components/ui/progress";
+
+// Rest of your component code remains the sameimport React, { useState, useEffect, useRef } from 'react';
 
 // Safely access environment variables
 const getEnvVar = (key) => {
