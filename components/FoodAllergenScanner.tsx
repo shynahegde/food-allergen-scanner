@@ -1,5 +1,6 @@
 'use client'
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, X, AlertTriangle, Info, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
@@ -27,6 +28,52 @@ const COMMON_ALLERGENS = [
   'sesame', 'mustard', 'celery', 'lupin', 'molluscs', 'sulphites'
 ];
 
+//Updates to handle API error
+useEffect(() => {
+    const checkEnvironmentVariables = () => {
+      const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY;
+      const edamamAppId = process.env.NEXT_PUBLIC_EDAMAM_APP_ID;
+      const edamamAppKey = process.env.NEXT_PUBLIC_EDAMAM_APP_KEY;
+
+      if (!googleApiKey || !edamamAppId || !edamamAppKey) {
+        console.error('Missing environment variables:', {
+          hasGoogleKey: !!googleApiKey,
+          hasEdamamId: !!edamamAppId,
+          hasEdamamKey: !!edamamAppKey
+        });
+        setEnvError('Missing API keys. Please check environment configuration.');
+        return false;
+      }
+      return true;
+    };
+
+    const isConfigValid = checkEnvironmentVariables();
+    if (!isConfigValid) {
+      console.warn('Environment variables not properly configured');
+    }
+  }, []);
+
+  // Add this right after your component's JSX starts
+  if (envError) {
+    return (
+      <div className="max-w-md mx-auto p-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-medium">Configuration Error</h3>
+          <p className="text-red-600 mt-1">{envError}</p>
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Please check:</p>
+            <ul className="list-disc pl-5 mt-2">
+              <li>Environment variables are set in Vercel</li>
+              <li>API keys are correctly formatted</li>
+              <li>Page has been redeployed after adding variables</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+//END
+
 const FoodAllergenScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,6 +89,8 @@ const FoodAllergenScanner = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [envError, setEnvError] = useState<string | null>(null);
 
   const startCamera = async () => {
     try {
@@ -258,6 +307,8 @@ const FoodAllergenScanner = () => {
     };
   }, []);
 
+ 
+
   return (
     <ClientOnly>
       <div className="max-w-md mx-auto p-4">
@@ -472,5 +523,6 @@ const FoodAllergenScanner = () => {
     </ClientOnly>
   );
 };
+
 
 export default FoodAllergenScanner;
