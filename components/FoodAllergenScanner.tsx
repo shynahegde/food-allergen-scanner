@@ -8,8 +8,7 @@ import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import ClientOnly from './ClientOnly';
 
-type EnvVarKey = 'NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY' | 'NEXT_PUBLIC_EDAMAM_APP_ID' | 'NEXT_PUBLIC_EDAMAM_APP_KEY';
-
+// Types
 interface Ingredient {
   food: string;
   category: string;
@@ -17,17 +16,56 @@ interface Ingredient {
   confidence?: number;
 }
 
-const getEnvVar = (key: EnvVarKey): string => {
-  return typeof window !== 'undefined' ? (window as any).ENV?.[key] || '' : '';
-};
+interface NutritionAnalysis {
+  allergens: string[];
+  isGlutenFree: boolean;
+  isVegan: boolean;
+  processedIngredients: string[];
+  nutritionFacts: {
+    highSugar: boolean;
+    highFat: boolean;
+    highCholesterol: boolean;
+    carbohydrates: boolean;
+  };
+  warnings: string[];
+  safeForDiet: string[];
+}
 
-// Common allergens according to WHO
+type EnvVarKey = 'NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY' | 'NEXT_PUBLIC_EDAMAM_APP_ID' | 'NEXT_PUBLIC_EDAMAM_APP_KEY';
+
+// Constants
 const COMMON_ALLERGENS = [
   'milk', 'egg', 'fish', 'shellfish', 'tree nuts', 'peanuts', 'wheat', 'soybeans',
   'sesame', 'mustard', 'celery', 'lupin', 'molluscs', 'sulphites'
 ];
 
+const PROCESSED_INGREDIENTS = [
+  'maltodextrin', 'corn syrup', 'high fructose', 'modified starch',
+  'artificial', 'preservative', 'sodium nitrite', 'msg', 'hydrolyzed',
+  'hydrogenated', 'flavor', 'colour', 'dextrose', 'glucose'
+];
+
+const VEGAN_INGREDIENTS = [
+  'meat', 'chicken', 'fish', 'egg', 'milk', 'dairy', 'whey', 'casein',
+  'honey', 'gelatin', 'shellac', 'lanolin', 'collagen', 'albumen'
+];
+
+const GLUTEN_INGREDIENTS = [
+  'wheat', 'barley', 'rye', 'malt', 'brewer', 'triticale', 'spelt',
+  'semolina', 'farina', 'graham'
+];
+
+const HIGH_SUGAR_INDICATORS = [
+  'sugar', 'syrup', 'dextrose', 'fructose', 'sucrose', 'honey',
+  'agave', 'molasses', 'corn sweetener'
+];
+
+const getEnvVar = (key: EnvVarKey): string => {
+  return typeof window !== 'undefined' ? (window as any).ENV?.[key] || '' : '';
+};
+
 const FoodAllergenScanner = () => {
+  // State declarations
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [detectedIngredients, setDetectedIngredients] = useState<Ingredient[]>([]);
@@ -37,12 +75,16 @@ const FoodAllergenScanner = () => {
   const [rawText, setRawText] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
+  const [nutritionAnalysis, setNutritionAnalysis] = useState<NutritionAnalysis | null>(null);
+
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+
+  // Camera handling functions
   const startCamera = async () => {
     try {
       setError(null);
@@ -77,6 +119,7 @@ const FoodAllergenScanner = () => {
     setIsScanning(false);
   };
 
+  // Image capture and processing functions
   const captureImage = (): string | null => {
     if (!videoRef.current || !canvasRef.current) return null;
     const canvas = canvasRef.current;
@@ -126,6 +169,7 @@ const FoodAllergenScanner = () => {
     event.preventDefault();
   };
 
+  // API interaction functions
   const detectText = async (imageBase64: string): Promise<string> => {
     const apiKey = getEnvVar('NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY');
     if (!apiKey) throw new Error('Google Cloud API key not configured');
@@ -163,7 +207,6 @@ const FoodAllergenScanner = () => {
       throw new Error('Edamam API credentials not configured');
     }
 
-    // Split text into potential ingredients
     const ingredients = text
       .toLowerCase()
       .split(/[,;\n]/)
@@ -204,6 +247,62 @@ const FoodAllergenScanner = () => {
     return results;
   };
 
+  // Analysis functions
+  const analyzeFood = (text: string): NutritionAnalysis => {
+    const lowerText = text.toLowerCase();
+    const analysis: NutritionAnalysis = {
+      allergens: [],
+      isGlutenFree: true,
+      isVegan: true,
+      processedIngredients: [],
+      nutritionFacts: {
+        highSugar: false,
+        highFat: false,
+        highCholesterol: false,
+        carbohydrates: false
+      },
+      warnings: [],
+      safeForDiet: []
+    };
+
+    // Check for processed ingredients
+    PROCESSED_INGREDIENTS.forEach(ingredient => {
+      if (lowerText.includes(ingredient.toLowerCase())) {
+        analysis.processedIngredients.push(ingredient);
+        analysis.warnings.push('Contains processed ingredients');
+      }
+    });
+
+    // Check for vegan status
+    VEGAN_INGREDIENTS.forEach(ingredient => {
+      if (lowerText.includes(ingredient.toLowerCase())) {
+        analysis.isVegan = false;
+        analysis.warnings.push('Not suitable for vegans');
+      }
+    });
+
+    // Check for gluten
+    GLUTEN_INGREDIENTS.forEach(ingredient => {
+      if (lowerText.includes(ingredient.toLowerCase())) {
+        analysis.isGlutenFree = false;
+        analysis.warnings.push('Contains gluten');
+      }
+    });
+
+    // Check for high sugar
+    if (HIGH_SUGAR_INDICATORS.some(sugar => lowerText.includes(sugar.toLowerCase()))) {
+      analysis.nutritionFacts.highSugar = true;
+      analysis.warnings.push('High sugar content');
+    }
+
+    // Add positive diet indicators
+    if (analysis.isGlutenFree) analysis.safeForDiet.push('Gluten-Free');
+    if (analysis.isVegan) analysis.safeForDiet.push('Vegan');
+    if (analysis.processedIngredients.length === 0) analysis.safeForDiet.push('All Natural');
+
+    return analysis;
+  };
+
   const processImage = async (imageBase64?: string) => {
     setIsProcessing(true);
     setError(null);
@@ -225,6 +324,10 @@ const FoodAllergenScanner = () => {
       setProgress(66);
       const ingredients = await analyzeIngredients(detectedText);
       setDetectedIngredients(ingredients);
+
+      // Perform nutrition analysis
+      const analysis = analyzeFood(detectedText);
+      setNutritionAnalysis(analysis);
 
       // Extract allergen warnings
       const warnings = Array.from(new Set(
@@ -250,6 +353,7 @@ const FoodAllergenScanner = () => {
     await processImage(base64Image);
   };
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -262,7 +366,7 @@ const FoodAllergenScanner = () => {
     <ClientOnly>
       <div className="max-w-md mx-auto p-4">
         <canvas ref={canvasRef} className="hidden" />
-        
+
         <Card className="mb-4">
           <CardHeader>
             <CardTitle>Food Allergen Scanner</CardTitle>
@@ -418,38 +522,56 @@ const FoodAllergenScanner = () => {
           </Card>
         )}
 
-          {detectedIngredients.length > 0 && (
+        {nutritionAnalysis && (
           <Card className="mb-4">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Info className="w-5 h-5" />
-                <span>Analyzed Ingredients</span>
+                <span>Nutrition Analysis</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ul className="space-y-1">
-                {detectedIngredients.map((item, index) => (
-                  <li 
-                    key={index}
-                    className={`p-2 rounded ${
-                      item.allergens.length > 0 ? 'bg-red-100' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="font-medium">{item.food}</div>
-                    <div className="text-sm text-gray-600">Category: {item.category}</div>
-                    {item.confidence && (
-                      <div className="text-sm text-gray-600">
-                        Confidence: {(item.confidence * 100).toFixed(1)}%
-                      </div>
-                    )}
-                    {item.allergens.length > 0 && (
-                      <div className="text-sm text-red-600">
-                        Allergens: {item.allergens.join(', ')}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <span className={nutritionAnalysis.isGlutenFree ? 'text-green-500' : 'text-red-500'}>
+                    {nutritionAnalysis.isGlutenFree ? <Check size={16} /> : <X size={16} />}
+                  </span>
+                  Gluten Free
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={nutritionAnalysis.isVegan ? 'text-green-500' : 'text-red-500'}>
+                    {nutritionAnalysis.isVegan ? <Check size={16} /> : <X size={16} />}
+                  </span>
+                  Vegan
+                </div>
+              </div>
+
+              {nutritionAnalysis.warnings.length > 0 && (
+                <div>
+                  <h3 className="font-medium mb-2">Warnings</h3>
+                  <ul className="list-disc pl-5 text-sm text-red-600">
+                    {nutritionAnalysis.warnings.map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {nutritionAnalysis.safeForDiet.length > 0 && (
+                <div>
+                  <h3 className="font-medium mb-2">Suitable for</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {nutritionAnalysis.safeForDiet.map((diet, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                      >
+                        {diet}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
