@@ -1,6 +1,5 @@
 'use client'
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, X, AlertTriangle, Info, Loader2, Upload, Image as ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
@@ -28,8 +27,6 @@ const COMMON_ALLERGENS = [
   'sesame', 'mustard', 'celery', 'lupin', 'molluscs', 'sulphites'
 ];
 
-
-
 const FoodAllergenScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,8 +42,6 @@ const FoodAllergenScanner = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [envError, setEnvError] = useState<string | null>(null);
 
   const startCamera = async () => {
     try {
@@ -263,8 +258,6 @@ const FoodAllergenScanner = () => {
     };
   }, []);
 
- 
-
   return (
     <ClientOnly>
       <div className="max-w-md mx-auto p-4">
@@ -479,6 +472,5 @@ const FoodAllergenScanner = () => {
     </ClientOnly>
   );
 };
-
 
 export default FoodAllergenScanner;
