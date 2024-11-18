@@ -2,6 +2,7 @@ import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import { Inter } from 'next/font/google'
 import Head from 'next/head'
+import { Suspense } from 'react'
 
 // Initialize Inter font
 const inter = Inter({
@@ -32,11 +33,11 @@ interface CustomAppProps extends AppProps {
 
 export default function App({ Component, pageProps }: CustomAppProps) {
   // Make environment variables available to the client
-  if (typeof window !== 'undefined' && pageProps.env) {
+  if (typeof window !== 'undefined') {
     window.ENV = {
-      NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: pageProps.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
-      NEXT_PUBLIC_EDAMAM_APP_ID: pageProps.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
-      NEXT_PUBLIC_EDAMAM_APP_KEY: pageProps.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
+      NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
+      NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
+      NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
     };
   }
 
@@ -75,50 +76,51 @@ export default function App({ Component, pageProps }: CustomAppProps) {
       </Head>
 
       <div className={`${inter.variable} font-sans`}>
-        {/* Error Boundary could be added here */}
-        <Component {...pageProps} />
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        }>
+          <Component {...pageProps} />
+        </Suspense>
       </div>
-
-      {/* Add any global modals or overlays here */}
     </>
   );
 }
 
-// Type guard for environment variables
-function isValidEnv(env: any): env is EnvVariables {
-  return (
-    typeof env === 'object' &&
-    typeof env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY === 'string' &&
-    typeof env.NEXT_PUBLIC_EDAMAM_APP_ID === 'string' &&
-    typeof env.NEXT_PUBLIC_EDAMAM_APP_KEY === 'string'
-  );
-}
-
-// getInitialProps to handle environment variables
+// Simplified getInitialProps with proper error handling
 App.getInitialProps = async ({ Component, ctx }: any) => {
-  let pageProps = {};
+  try {
+    let pageProps = {};
 
-  // Get page's props
-  if (Component.getInitialProps) {
-    pageProps = await Component.getInitialProps(ctx);
-  }
-
-  // Add environment variables
-  const env = {
-    NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY,
-    NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID,
-    NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY,
-  };
-
-  // Validate environment variables
-  if (!isValidEnv(env)) {
-    console.warn('Missing or invalid environment variables');
-  }
-
-  return {
-    pageProps: {
-      ...pageProps,
-      env
+    if (Component.getInitialProps) {
+      pageProps = await Component.getInitialProps(ctx);
     }
-  };
+
+    const env = {
+      NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
+      NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
+      NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
+    };
+
+    return {
+      pageProps: {
+        ...pageProps,
+        env
+      }
+    };
+  } catch (error) {
+    console.error('Error in getInitialProps:', error);
+    return {
+      pageProps: {
+        env: {
+          NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: '',
+          NEXT_PUBLIC_EDAMAM_APP_ID: '',
+          NEXT_PUBLIC_EDAMAM_APP_KEY: ''
+        }
+      }
+    };
+  }
 };
+
+export type { EnvVariables };
