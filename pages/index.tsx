@@ -2,10 +2,11 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 import Head from 'next/head'
 import { Loader2 } from 'lucide-react'
+import type { EnvVariables } from './_app'
 
 // Dynamically import the scanner component with no SSR
 const FoodAllergenScanner = dynamic(
-  () => import('../components/FoodAllergenScanner'),
+  () => import('../components/FoodAllergenScanner').then(mod => mod.default),
   { 
     ssr: false,
     loading: () => (
@@ -21,7 +22,16 @@ const FoodAllergenScanner = dynamic(
   }
 )
 
-export default function Home() {
+interface HomeProps {
+  env: EnvVariables;
+}
+
+export default function Home({ env }: HomeProps) {
+  // Ensure environment variables are available on the client
+  if (typeof window !== 'undefined') {
+    window.ENV = env;
+  }
+
   return (
     <>
       <Head>
@@ -51,20 +61,22 @@ export default function Home() {
           </div>
 
           {/* Scanner Component */}
-          <Suspense 
-            fallback={
-              <div className="max-w-md mx-auto p-4">
-                <div className="min-h-[400px] rounded-lg border border-gray-200 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                    <p className="text-gray-500">Loading scanner...</p>
+          <ErrorBoundary>
+            <Suspense 
+              fallback={
+                <div className="max-w-md mx-auto p-4">
+                  <div className="min-h-[400px] rounded-lg border border-gray-200 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <p className="text-gray-500">Loading scanner...</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            }
-          >
-            <FoodAllergenScanner />
-          </Suspense>
+              }
+            >
+              <FoodAllergenScanner />
+            </Suspense>
+          </ErrorBoundary>
 
           {/* Footer */}
           <footer className="mt-8 text-center text-sm text-gray-500">
@@ -82,14 +94,69 @@ export default function Home() {
   )
 }
 
-// Make sure environment variables are available
-export function getStaticProps() {
-  return {
-    props: {
-      env: {
-        NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
-        NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
-        NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Scanner Error:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-md mx-auto p-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <h2 className="text-red-800 font-medium mb-2">Something went wrong</h2>
+            <p className="text-red-600 mb-4">
+              An error occurred while loading the scanner.
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false })}
+              className="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+// Get environment variables during build
+export async function getStaticProps() {
+  try {
+    return {
+      props: {
+        env: {
+          NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
+          NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
+          NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in getStaticProps:', error)
+    return {
+      props: {
+        env: {
+          NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: '',
+          NEXT_PUBLIC_EDAMAM_APP_ID: '',
+          NEXT_PUBLIC_EDAMAM_APP_KEY: ''
+        }
       }
     }
   }
