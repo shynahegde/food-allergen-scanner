@@ -1,3 +1,4 @@
+import React from 'react'
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 import Head from 'next/head'
@@ -26,7 +27,7 @@ interface HomeProps {
   env: EnvVariables;
 }
 
-export default function Home({ env }: HomeProps) {
+function Home({ env }: HomeProps) {
   // Ensure environment variables are available on the client
   if (typeof window !== 'undefined') {
     window.ENV = env;
@@ -61,7 +62,7 @@ export default function Home({ env }: HomeProps) {
           </div>
 
           {/* Scanner Component */}
-          <ErrorBoundary>
+          <ScannerErrorBoundary>
             <Suspense 
               fallback={
                 <div className="max-w-md mx-auto p-4">
@@ -76,7 +77,7 @@ export default function Home({ env }: HomeProps) {
             >
               <FoodAllergenScanner />
             </Suspense>
-          </ErrorBoundary>
+          </ScannerErrorBoundary>
 
           {/* Footer */}
           <footer className="mt-8 text-center text-sm text-gray-500">
@@ -95,7 +96,7 @@ export default function Home({ env }: HomeProps) {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<
+class ScannerErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean }
 > {
@@ -161,3 +162,5 @@ export async function getStaticProps() {
     }
   }
 }
+
+export default Home
