@@ -1,13 +1,29 @@
-import React from 'react'
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 import Head from 'next/head'
 import { Loader2 } from 'lucide-react'
-import type { EnvVariables } from './_app'
 
-// Dynamically import the scanner component with no SSR
+// Dynamically import the scanner component with no SSR and proper error handling
 const FoodAllergenScanner = dynamic(
-  () => import('../components/FoodAllergenScanner').then(mod => mod.default),
+  () => import('../components/FoodAllergenScanner')
+    .then(mod => mod.default)
+    .catch(err => {
+      console.error('Error loading scanner:', err);
+      return () => (
+        <div className="max-w-md mx-auto p-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <h2 className="text-red-800 font-medium mb-2">Something went wrong</h2>
+            <p className="text-red-600 mb-4">Failed to load the scanner. Please try again.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }),
   { 
     ssr: false,
     loading: () => (
@@ -23,14 +39,14 @@ const FoodAllergenScanner = dynamic(
   }
 )
 
-interface HomeProps {
-  env: EnvVariables;
-}
-
-function Home({ env }: HomeProps) {
-  // Ensure environment variables are available on the client
+export default function Home() {
+  // Make environment variables available to the client
   if (typeof window !== 'undefined') {
-    window.ENV = env;
+    window.ENV = {
+      NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
+      NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
+      NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || ''
+    };
   }
 
   return (
@@ -39,8 +55,6 @@ function Home({ env }: HomeProps) {
         <title>Food Allergen Scanner</title>
         <meta name="description" content="Scan food products to detect allergens and ingredients" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        
-        {/* PWA meta tags */}
         <meta name="application-name" content="Food Allergen Scanner" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -62,22 +76,20 @@ function Home({ env }: HomeProps) {
           </div>
 
           {/* Scanner Component */}
-          <ScannerErrorBoundary>
-            <Suspense 
-              fallback={
-                <div className="max-w-md mx-auto p-4">
-                  <div className="min-h-[400px] rounded-lg border border-gray-200 flex items-center justify-center">
-                    <div className="flex flex-col items-center gap-4">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                      <p className="text-gray-500">Loading scanner...</p>
-                    </div>
+          <Suspense 
+            fallback={
+              <div className="max-w-md mx-auto p-4">
+                <div className="min-h-[400px] rounded-lg border border-gray-200 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <p className="text-gray-500">Loading scanner...</p>
                   </div>
                 </div>
-              }
-            >
-              <FoodAllergenScanner />
-            </Suspense>
-          </ScannerErrorBoundary>
+              </div>
+            }
+          >
+            <FoodAllergenScanner />
+          </Suspense>
 
           {/* Footer */}
           <footer className="mt-8 text-center text-sm text-gray-500">
@@ -95,72 +107,26 @@ function Home({ env }: HomeProps) {
   )
 }
 
-// Error Boundary Component
-class ScannerErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props)
-    this.state = { hasError: false }
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true }
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Scanner Error:', error, errorInfo)
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="max-w-md mx-auto p-4">
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-            <h2 className="text-red-800 font-medium mb-2">Something went wrong</h2>
-            <p className="text-red-600 mb-4">
-              An error occurred while loading the scanner.
-            </p>
-            <button
-              onClick={() => this.setState({ hasError: false })}
-              className="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      )
+// Type declaration for window.ENV
+declare global {
+  interface Window {
+    ENV: {
+      NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: string;
+      NEXT_PUBLIC_EDAMAM_APP_ID: string;
+      NEXT_PUBLIC_EDAMAM_APP_KEY: string;
     }
-
-    return this.props.children
   }
 }
 
 // Get environment variables during build
-export async function getStaticProps() {
-  try {
-    return {
-      props: {
-        env: {
-          NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
-          NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
-          NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error in getStaticProps:', error)
-    return {
-      props: {
-        env: {
-          NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: '',
-          NEXT_PUBLIC_EDAMAM_APP_ID: '',
-          NEXT_PUBLIC_EDAMAM_APP_KEY: ''
-        }
+export function getStaticProps() {
+  return {
+    props: {
+      env: {
+        NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CLOUD_API_KEY || '',
+        NEXT_PUBLIC_EDAMAM_APP_ID: process.env.NEXT_PUBLIC_EDAMAM_APP_ID || '',
+        NEXT_PUBLIC_EDAMAM_APP_KEY: process.env.NEXT_PUBLIC_EDAMAM_APP_KEY || '',
       }
     }
   }
 }
-
-export default Home
